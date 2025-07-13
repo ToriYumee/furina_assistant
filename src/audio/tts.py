@@ -25,7 +25,7 @@ class WindowsTTS(TTSEngine):
             command = f'powershell -Command "Add-Type -AssemblyName System.speech; $speak = New-Object System.Speech.Synthesis.SpeechSynthesizer; $speak.Speak(\'{text}\')"'
             subprocess.run(command, shell=True, check=True, capture_output=True)
             return True
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             return False
         except Exception:
             return False
@@ -53,7 +53,7 @@ class MacOSTTS(TTSEngine):
         try:
             subprocess.run(["which", "say"], check=True, capture_output=True)
             return True
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             return False
 
 class LinuxTTS(TTSEngine):
@@ -61,7 +61,8 @@ class LinuxTTS(TTSEngine):
     
     def __init__(self):
         self.engine = None
-        self._detect_engine()
+        if platform.system() == "Linux":
+            self._detect_engine()
     
     def _detect_engine(self):
         """Detect available TTS engine on Linux"""
@@ -71,7 +72,7 @@ class LinuxTTS(TTSEngine):
                 subprocess.run(["which", engine], check=True, capture_output=True)
                 self.engine = engine
                 break
-            except subprocess.CalledProcessError:
+            except (subprocess.CalledProcessError, FileNotFoundError):
                 continue
     
     def speak(self, text: str) -> bool:
@@ -86,7 +87,7 @@ class LinuxTTS(TTSEngine):
             elif self.engine == "spd-say":
                 subprocess.run(["spd-say", text], check=True, capture_output=True)
             return True
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             return False
         except Exception:
             return False
@@ -139,31 +140,40 @@ class TextToSpeech:
         self.current_engine = None
         self.enabled = True
         
-        # Initialize engines in order of preference
-        if prefer_pyttsx:
-            self.engines = [
-                PyttsxTTS(),
-                WindowsTTS(),
-                MacOSTTS(),
-                LinuxTTS()
-            ]
+        print("Initializing TTS engines...")
+        
+        # Initialize engines in order of preference based on OS
+        current_os = platform.system()
+        
+        if current_os == "Windows":
+            self.engines = [WindowsTTS(), PyttsxTTS()]
+        elif current_os == "Darwin":  # macOS
+            self.engines = [MacOSTTS(), PyttsxTTS()]
+        elif current_os == "Linux":
+            self.engines = [LinuxTTS(), PyttsxTTS()]
         else:
-            self.engines = [
-                WindowsTTS(),
-                MacOSTTS(),
-                LinuxTTS(),
-                PyttsxTTS()
-            ]
+            # Unknown OS, try pyttsx3 only
+            self.engines = [PyttsxTTS()]
+        
+        # If user prefers pyttsx3, put it first
+        if prefer_pyttsx and len(self.engines) > 1:
+            pyttsx_engine = next((e for e in self.engines if isinstance(e, PyttsxTTS)), None)
+            if pyttsx_engine:
+                self.engines.remove(pyttsx_engine)
+                self.engines.insert(0, pyttsx_engine)
         
         # Select first available engine
         for engine in self.engines:
+            print(f"Testing {engine.__class__.__name__}...")
             if engine.is_available():
                 self.current_engine = engine
-                print(f"TTS Engine selected: {engine.__class__.__name__}")
+                print(f"✓ TTS Engine selected: {engine.__class__.__name__}")
                 break
+            else:
+                print(f"✗ {engine.__class__.__name__} not available")
         
         if not self.current_engine:
-            print("No TTS engine available")
+            print("⚠️  No TTS engine available")
             self.enabled = False
     
     def speak(self, text: str) -> bool:
@@ -175,7 +185,23 @@ class TextToSpeech:
         if not text or not text.strip():
             return False
         
-        return self.current_engine.speak(text)
+        # Try to speak with current engine
+        success = self.current_engine.speak(text)
+        
+        # If it fails, try other available engines
+        if not success:
+            print(f"Primary TTS engine failed, trying alternatives...")
+            for engine in self.engines:
+                if engine != self.current_engine and engine.is_available():
+                    print(f"Trying {engine.__class__.__name__}...")
+                    if engine.speak(text):
+                        print(f"Switched to {engine.__class__.__name__}")
+                        self.current_engine = engine
+                        return True
+            print("All TTS engines failed")
+            return False
+        
+        return success
     
     def toggle(self) -> bool:
         """Toggle TTS on/off. Returns new state."""
