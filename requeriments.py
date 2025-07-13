@@ -3,3 +3,4 @@ openai
 sounddevice
 soundfile
 python-dotenv
+pyttsx3
