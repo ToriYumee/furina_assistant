@@ -7,16 +7,18 @@ from commands.app_commands import AppLauncherCommand
 from commands.system_commands import SystemCommand, VolumeCommand
 from commands.help_commands import HelpCommand, GreetingCommand
 from commands.tts_commands import TTSControlCommand, RepeatCommand
+from commands.system_info_commands import StatsCommand, SystemInfoCommand, UptimeCommand, TestFuzzyCommand
 
 def main():
     # Configuration
     ACTIVATION_WORDS = ["furina", "purina"]
+    FUZZY_THRESHOLD = 60.0  # Minimum similarity for fuzzy matching
     
     # Initialize components
     recorder = AudioRecorder(duration=5)
     transcriber = AudioTranscriber()
     tts = TextToSpeech(prefer_pyttsx=False)  # Use system TTS first
-    processor = CommandProcessor(ACTIVATION_WORDS)
+    processor = CommandProcessor(ACTIVATION_WORDS, fuzzy_threshold=FUZZY_THRESHOLD)
     
     # Register basic commands
     processor.register_command(TimeCommand())
@@ -25,6 +27,11 @@ def main():
     processor.register_command(SystemCommand())
     processor.register_command(VolumeCommand())
     processor.register_command(GreetingCommand())
+    
+    # System info commands
+    processor.register_command(SystemInfoCommand())
+    processor.register_command(UptimeCommand())
+    processor.register_command(TestFuzzyCommand())
     
     # TTS-related commands
     tts_control = TTSControlCommand()
@@ -35,17 +42,24 @@ def main():
     repeat_cmd.set_tts_engine(tts)
     processor.register_command(repeat_cmd)
     
-    # Help command needs processor reference
+    # Commands that need processor reference
     help_cmd = HelpCommand()
     help_cmd.set_processor(processor)
     processor.register_command(help_cmd)
     
-    print("=== Voice Assistant with TTS ===")
+    stats_cmd = StatsCommand()
+    stats_cmd.set_processor(processor)
+    processor.register_command(stats_cmd)
+    
+    print("=== Voice Assistant with Enhanced Detection ===")
     print("Activation words:", ACTIVATION_WORDS)
     print(f"Commands loaded: {len(processor.commands)}")
+    print(f"Fuzzy matching threshold: {FUZZY_THRESHOLD}%")
     print(f"TTS Status: {tts.get_engine_info()}")
-    print("Say 'Furina ayuda' for available commands")
-    print("Press Enter to start recording...")
+    print("\n🎯 Try saying commands with small errors to test fuzzy matching!")
+    print("📊 Say 'Furina estadísticas' to see detection stats")
+    print("🧪 Say 'Furina test fuzzy' for fuzzy matching examples")
+    print("\nPress Enter to start recording...")
     
     last_response = ""
     
