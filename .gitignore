@@ -1,0 +1,22 @@
+# .gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+env/
+venv/
+
+# Audio files (si grabas mucho)
+*.wav
+*.mp3
+*.m4a
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
