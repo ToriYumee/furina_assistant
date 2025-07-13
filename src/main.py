@@ -1,6 +1,10 @@
 from audio.recorder import AudioRecorder
 from audio.transcriber import AudioTranscriber
 from commands.base import CommandProcessor
+from commands.time_commands import TimeCommand, DateCommand
+from commands.app_commands import AppLauncherCommand
+from commands.system_commands import SystemCommand, VolumeCommand
+from commands.help_commands import HelpCommand, GreetingCommand
 
 def main():
     # Configuration
@@ -11,9 +15,23 @@ def main():
     transcriber = AudioTranscriber()
     processor = CommandProcessor(ACTIVATION_WORDS)
     
-    # No commands registered yet, just basic functionality
+    # Register commands
+    processor.register_command(TimeCommand())
+    processor.register_command(DateCommand())
+    processor.register_command(AppLauncherCommand())
+    processor.register_command(SystemCommand())
+    processor.register_command(VolumeCommand())
+    processor.register_command(GreetingCommand())
+    
+    # Help command needs processor reference
+    help_cmd = HelpCommand()
+    help_cmd.set_processor(processor)
+    processor.register_command(help_cmd)
+    
     print("=== Voice Assistant ===")
     print("Activation words:", ACTIVATION_WORDS)
+    print(f"Commands loaded: {len(processor.commands)}")
+    print("Say 'Furina ayuda' for available commands")
     print("Press Enter to start recording...")
     
     while True:
